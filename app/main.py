@@ -34,16 +34,18 @@ def map_sentiment_and_reason(row):
         return reason_mapping.get(row['negativereason'], 10)  # Default to 10 if no specific reason
     return None  # Handle missing cases
 
-data = pd.read_csv('app\Tweets.csv')
-
-stop_words = set(stopwords.words('english'))
-lemmatizer = WordNetLemmatizer()
 def preprocess_text(text):
 	text = re.sub(r'[^a-zA-Z]', ' ', text)
 	text = text.lower()
 	text = [lemmatizer.lemmatize(word) for word in text.split() if word not in stop_words]
 	text = ' '.join(text)
 	return text
+
+
+data = pd.read_csv('app\Tweets.csv')
+
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
 
 data['text'] = data['text'].apply(preprocess_text)
 data['text'].head()
