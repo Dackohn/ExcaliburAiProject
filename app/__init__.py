@@ -11,7 +11,7 @@ nltk.download('wordnet')
 nltk.download('stopwords')
 
 # Load the dataset
-file_path = 'D:/Users/ASUS-X509J/Desktop/ExcaliburAiProject/Tweets.csv'
+file_path = 'Tweets.csv'
 df = pd.read_csv(file_path, sep=',')
 
 # Explore the dataset
@@ -49,6 +49,6 @@ print("\nSample of processed text:\n", df[['text', 'processed_text']].head())
 print("\nProcessed Data Sample:\n", df[['airline_sentiment', 'processed_text']].head())
 
 # Save the processed dataset
-output_path = 'D:/Users/ASUS-X509J/Desktop/ExcaliburAiProject/Tweets_processed.csv'
+output_path = 'Tweets_processed.csv'
 df.to_csv(output_path, index=False)
 print(f"\nProcessed dataset saved successfully to {output_path}.")
