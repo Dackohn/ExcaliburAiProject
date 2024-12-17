@@ -1,5 +1,6 @@
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 import pandas as pd
 import numpy as np
@@ -35,7 +36,7 @@ data = pd.read_csv('Tweets.csv')
 
 # Инициализация стоп-слов и лемматизатора
 stop_words = set(stopwords.words('english'))
-lemmatizer = WordNetLemmatizer()
+lemmatizer = nltk.WordNetLemmatizer()
 
 # Функция предобработки текста
 def preprocess_text(text):
@@ -57,12 +58,22 @@ X = vectorizer.fit_transform(data['text'])
 
 # Разделение данных на обучающую и тестовую выборки
 X_train, X_test, y_train, y_test = train_test_split(X, data['y'], test_size=0.2, random_state=42)
-print(X_train.shape, X_test.shape)
 
-# Обучение модели
-model = LogisticRegression()
-model.fit(X_train, y_train)
+# Модели для обучения
+models = {
+    "Logistic Regression": LogisticRegression(),
+    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42)
+}
 
-# Оценка модели
-y_pred = model.predict(X_test)
-print(classification_report(y_test, y_pred))
+# Обучение и оценка моделей
+for model_name, model in models.items():
+    print(f"Обучение модели: {model_name}")
+    model.fit(X_train, y_train)
+    
+    # Предсказание
+    y_pred = model.predict(X_test)
+    
+    # Оценка модели
+    print(f"Результаты {model_name}:")
+    print(classification_report(y_test, y_pred))
+    print("=" * 60)
