@@ -8,31 +8,21 @@ import matplotlib.pyplot as plt
 import re
 import seaborn as sns
 from sklearn.feature_extraction.text import TfidfVectorizer
+from imblearn.under_sampling import RandomUnderSampler
+
 
 #nltk.download('punkt')
 #nltk.download('wordnet')
 #nltk.download('stopwords')
 
 def map_sentiment_and_reason(row):
-    if row['airline_sentiment'] == 'positive':
+    if row == 'positive':
         return 12
-    elif row['airline_sentiment'] == 'neutral':
+    elif row == 'neutral':
         return 11
-    elif row['airline_sentiment'] == 'negative':
-        reason_mapping = {
-            'Customer Service Issue': 0,
-            'Late Flight': 1,
-            "Can't Tell": 2,
-            'Cancelled Flight': 3,
-            'Lost Luggage': 4,
-            'Bad Flight': 5,
-            'Flight Booking Problems': 6,
-            'Flight Attendant Complaints': 7,
-            'longlines': 8,
-            'Damaged Luggage': 9
-        }
-        return reason_mapping.get(row['negativereason'], 10)  # Default to 10 if no specific reason
-    return None  # Handle missing cases
+    elif row == 'negative':
+        return 10 
+    return None  
 
 def preprocess_text(text):
 	text = re.sub(r'[^a-zA-Z]', ' ', text)
@@ -49,12 +39,22 @@ lemmatizer = WordNetLemmatizer()
 
 data['text'] = data['text'].apply(preprocess_text)
 data['text'].head()
+# class balancing under sampling   
+X = data.drop(['airline_sentiment'], axis=1)
+y = data['airline_sentiment']
 
+rus = RandomUnderSampler(sampling_strategy="not minority") # String
+X_res, y_res = rus.fit_resample(X, y)
+
+ax = y_res.value_counts().plot.pie(autopct='%1.1f%%',figsize=(8, 8))
+_ = ax.set_title("Under-sampling")
+
+#Vectorizare text
 vectorizer = TfidfVectorizer(max_features=1000)
-X = vectorizer.fit_transform(data['text'])
+X = vectorizer.fit_transform(X_res['text'])
 
 # Aplică funcția pe fiecare rând
-y = data.apply(map_sentiment_and_reason, axis=1)
+y = y_res.apply(map_sentiment_and_reason)
 
 from sklearn.model_selection import train_test_split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
