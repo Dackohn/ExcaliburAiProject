@@ -30,7 +30,7 @@ def map_sentiment(row):
         return 'neutral'
     elif row == 'negative':
         return 'negative'    
-    elif row == 'Positive':
+    elif row == 'Positive': 
         return 'positive'
     elif row == 'Neutral':
         return 'neutral'
@@ -39,6 +39,7 @@ def map_sentiment(row):
     elif row == 'Irrelevant':
         return 'neutral'
     return None 
+
 
 def preprocess_text(text):
 	text = re.sub(r'[^a-zA-Z]', ' ', text)
