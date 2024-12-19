@@ -1,5 +1,5 @@
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
 import pandas as pd
@@ -28,23 +28,24 @@ def map_sentiment_and_reason(row):
             'longlines': 8,
             'Damaged Luggage': 9
         }
-        return reason_mapping.get(row['negativereason'], 10)  # Default to 10 if no specific reason
-    return None  # Handle missing cases
+        return reason_mapping.get(row['negativereason'], 10)
+    return None
 
 # Load data
 data = pd.read_csv('Tweets.csv')
 
 # Initialize stop words and lemmatizer
+nltk.download('stopwords')
+nltk.download('wordnet')
 stop_words = set(stopwords.words('english'))
 lemmatizer = nltk.WordNetLemmatizer()
 
 # Preprocessing function
 def preprocess_text(text):
-    text = re.sub(r'[^a-zA-Z]', ' ', text)  # Remove non-alphabetic characters
-    text = text.lower()  # Convert to lower case
-    text = [lemmatizer.lemmatize(word) for word in text.split() if word not in stop_words]  # Lemmatization and stopword removal
-    text = ' '.join(text)  # Return the text as a string
-    return text
+    text = re.sub(r'[^a-zA-Z]', ' ', text)
+    text = text.lower()
+    text = [lemmatizer.lemmatize(word) for word in text.split() if word not in stop_words]
+    return ' '.join(text)
 
 # Apply text preprocessing
 data['text'] = data['text'].apply(preprocess_text)
@@ -55,23 +56,21 @@ data['y'] = data.apply(map_sentiment_and_reason, axis=1)
 # Tokenize text for Word2Vec
 tokenized_text = [text.split() for text in data['text']]
 
-# Train Word2Vec model
-word2vec_model = Word2Vec(sentences=tokenized_text, vector_size=100, window=5, min_count=1, workers=4)
+# Train Word2Vec model with reduced vector size
+word2vec_model = Word2Vec(sentences=tokenized_text, vector_size=30, window=3, min_count=1, workers=2)
 word2vec_model.save("word2vec.model")
 
 # Function to convert text to average Word2Vec vector
-def get_average_word2vec(tokens, model, vector_size=100):
+def get_average_word2vec(tokens, model, vector_size=30):
     vector = np.zeros(vector_size)
     num_tokens = 0
     for word in tokens:
         if word in model.wv:
             vector += model.wv[word]
             num_tokens += 1
-    if num_tokens > 0:
-        vector /= num_tokens
-    return vector
+    return vector / num_tokens if num_tokens > 0 else vector
 
-# Apply Word2Vec to convert each document into a feature vector
+# Precompute Word2Vec vectors
 X_word2vec = np.array([get_average_word2vec(text.split(), word2vec_model) for text in data['text']])
 
 # Split data into train and test sets
@@ -79,8 +78,21 @@ X_train, X_test, y_train, y_test = train_test_split(X_word2vec, data['y'], test_
 
 # Models for training
 models = {
-    "Logistic Regression": LogisticRegression(max_iter=1000),
-    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42)
+    "Random Forest": RandomForestClassifier(random_state=42),
+    "SVM": SVC(random_state=42)
+}
+
+# Hyperparameter tuning configuration
+param_grids = {
+    "Random Forest": {
+        'n_estimators': [50, 100],
+        'max_depth': [10, None],
+    },
+    "SVM": {
+        'C': [0.1, 1, 10],
+        'kernel': ['linear', 'rbf', 'poly'],
+        'gamma': ['scale', 'auto']
+    }
 }
 
 # Store the results in a dictionary for comparison
@@ -89,53 +101,35 @@ results = {}
 # Train and evaluate models
 for model_name, model in models.items():
     print(f"Training model: {model_name}")
-    
-    # GridSearchCV for Random Forest and Logistic Regression
-    if model_name == "Random Forest":
-        param_grid = {
-            'n_estimators': [50, 100, 200],
-            'max_depth': [10, 20, 30, None],
-            'min_samples_split': [2, 5, 10],
-            'min_samples_leaf': [1, 2, 4]
-        }
-        grid_search = GridSearchCV(model, param_grid, cv=3, n_jobs=-1, verbose=2)
-        grid_search.fit(X_train, y_train)
-        print(f"Best parameters for Random Forest: {grid_search.best_params_}")
-        model = grid_search.best_estimator_
-        
-    elif model_name == "Logistic Regression":
-        param_grid = {
-            'C': [0.1, 1, 10],
-            'solver': ['liblinear', 'saga']
-        }
-        grid_search = GridSearchCV(model, param_grid, cv=3, n_jobs=-1, verbose=2)
-        grid_search.fit(X_train, y_train)
-        print(f"Best parameters for Logistic Regression: {grid_search.best_params_}")
-        model = grid_search.best_estimator_
+    param_grid = param_grids[model_name]
+    random_search = RandomizedSearchCV(model, param_distributions=param_grid, n_iter=5, cv=2, n_jobs=-1, verbose=1, random_state=42)
+    random_search.fit(X_train, y_train)
 
-    # Train the model
-    model.fit(X_train, y_train)
-    
+    print(f"Best parameters for {model_name}: {random_search.best_params_}")
+    model = random_search.best_estimator_
+
     # Prediction
     y_pred = model.predict(X_test)
-    
+
     # Store evaluation results for comparison
     accuracy = accuracy_score(y_test, y_pred)
     class_report = classification_report(y_test, y_pred)
-    
+
     results[model_name] = {
         'accuracy': accuracy,
         'classification_report': class_report
     }
-    
+
     print(f"Accuracy for {model_name}: {accuracy}")
-    print(f"Classification report for {model_name}:\n{class_report}")
+    print(f"Classification report for {model_name}: {class_report}")
     print("=" * 60)
 
-# Compare the models
-print("\nModel Comparison:")
-for model_name, result in results.items():
-    print(f"Results for {model_name}:")
-    print(f"Accuracy: {result['accuracy']}")
-    print(f"Classification Report:\n{result['classification_report']}")
-    print("=" * 60)
+# Find the best model based on accuracy
+best_model_name = max(results, key=lambda model_name: results[model_name]['accuracy'])
+best_model = results[best_model_name]
+
+# Output the best model's result
+print("\nBest Model:")
+print(f"Model: {best_model_name}")
+print(f"Accuracy: {best_model['accuracy']}")
+print(f"Classification Report:\n{best_model['classification_report']}")
