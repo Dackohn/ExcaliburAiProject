@@ -83,6 +83,9 @@ models = {
     "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42)
 }
 
+# Store the results in a dictionary for comparison
+results = {}
+
 # Train and evaluate models
 for model_name, model in models.items():
     print(f"Training model: {model_name}")
@@ -116,8 +119,23 @@ for model_name, model in models.items():
     # Prediction
     y_pred = model.predict(X_test)
     
-    # Model evaluation
+    # Store evaluation results for comparison
+    accuracy = accuracy_score(y_test, y_pred)
+    class_report = classification_report(y_test, y_pred)
+    
+    results[model_name] = {
+        'accuracy': accuracy,
+        'classification_report': class_report
+    }
+    
+    print(f"Accuracy for {model_name}: {accuracy}")
+    print(f"Classification report for {model_name}:\n{class_report}")
+    print("=" * 60)
+
+# Compare the models
+print("\nModel Comparison:")
+for model_name, result in results.items():
     print(f"Results for {model_name}:")
-    print(classification_report(y_test, y_pred))
-    print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
+    print(f"Accuracy: {result['accuracy']}")
+    print(f"Classification Report:\n{result['classification_report']}")
     print("=" * 60)
