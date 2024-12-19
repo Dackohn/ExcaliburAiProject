@@ -11,6 +11,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import KFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
+import joblib
 
 #nltk.download('punkt')
 #nltk.download('wordnet')
@@ -133,3 +134,7 @@ model = LogisticRegression(max_iter=1000)
 scores = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
 print("K-Fold Cross Validation Accuracy Scores:", scores)
 print("Mean Accuracy:", scores.mean())
+
+model.fit(X, y)
+joblib.dump(model, 'sentiment_model.pkl')
+joblib.dump(vectorizer, 'vectorizer.pkl')
