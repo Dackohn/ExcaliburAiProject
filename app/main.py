@@ -1,13 +1,17 @@
+import numpy as np
+import pandas as pd
+import re
+import nltk
+from nltk.corpus import stopwords
+from gensim.models import Word2Vec
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
-import pandas as pd
-import numpy as np
-import nltk
-from nltk.corpus import stopwords
-import re
-from gensim.models import Word2Vec
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.optimizers import Adam
 
 # Function to map sentiment and reason
 def map_sentiment_and_reason(row):
@@ -73,16 +77,29 @@ def get_average_word2vec(tokens, model, vector_size=30):
 # Precompute Word2Vec vectors
 X_word2vec = np.array([get_average_word2vec(text.split(), word2vec_model) for text in data['text']])
 
+# Encode sentiment labels
+le = LabelEncoder()
+data['y'] = le.fit_transform(data['airline_sentiment'])
+
 # Split data into train and test sets
 X_train, X_test, y_train, y_test = train_test_split(X_word2vec, data['y'], test_size=0.2, random_state=42)
 
 # Models for training
 models = {
     "Random Forest": RandomForestClassifier(random_state=42),
-    "SVM": SVC(random_state=42)
+    "SVM": SVC(random_state=42),
+    "Neural Network": Sequential()
 }
 
-# Hyperparameter tuning configuration
+# Neural Network model
+models["Neural Network"].add(Dense(128, input_dim=X_train.shape[1], activation='relu'))
+models["Neural Network"].add(Dropout(0.2))
+models["Neural Network"].add(Dense(64, activation='relu'))
+models["Neural Network"].add(Dense(32, activation='relu'))
+models["Neural Network"].add(Dense(3, activation='softmax'))  # 3 classes: positive, negative, neutral
+models["Neural Network"].compile(loss='sparse_categorical_crossentropy', optimizer=Adam(), metrics=['accuracy'])
+
+# Hyperparameter tuning configuration for Random Forest and SVM
 param_grids = {
     "Random Forest": {
         'n_estimators': [50, 100],
@@ -101,15 +118,20 @@ results = {}
 # Train and evaluate models
 for model_name, model in models.items():
     print(f"Training model: {model_name}")
-    param_grid = param_grids[model_name]
-    random_search = RandomizedSearchCV(model, param_distributions=param_grid, n_iter=5, cv=2, n_jobs=-1, verbose=1, random_state=42)
-    random_search.fit(X_train, y_train)
+    if model_name != "Neural Network":  # Random Forest and SVM
+        param_grid = param_grids[model_name]
+        random_search = RandomizedSearchCV(model, param_distributions=param_grid, n_iter=5, cv=2, n_jobs=-1, verbose=1, random_state=42)
+        random_search.fit(X_train, y_train)
 
-    print(f"Best parameters for {model_name}: {random_search.best_params_}")
-    model = random_search.best_estimator_
+        print(f"Best parameters for {model_name}: {random_search.best_params_}")
+        model = random_search.best_estimator_
 
-    # Prediction
-    y_pred = model.predict(X_test)
+        # Prediction
+        y_pred = model.predict(X_test)
+    else:  # Neural Network
+        model.fit(X_train, y_train, epochs=5, batch_size=32, validation_data=(X_test, y_test))
+        y_pred = model.predict(X_test)
+        y_pred = np.argmax(y_pred, axis=1)
 
     # Store evaluation results for comparison
     accuracy = accuracy_score(y_test, y_pred)
