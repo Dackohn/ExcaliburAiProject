@@ -33,4 +33,4 @@ jobs:
       - name: Run Tox tests
         run: |
           pip install tox  # Install Tox
-          tox  # Run Tox
+          tox  -c app/tox.ini # Run Tox
