@@ -1,2 +1,4 @@
 app/sentiment_model.pkl
-app/vectorizer.pkl
+app/sentiment_model2.h5
+app/my_model.h5
+app/.tox/*
